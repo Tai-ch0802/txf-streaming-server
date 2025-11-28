@@ -1,6 +1,9 @@
+import sys
 from confluent_kafka import Consumer, KafkaError
 import txf_data_pb2 # 匯入 Protobuf 定義
 from config import KAFKA_BOOTSTRAP_SERVERS, TICK_TOPIC, BIDASK_TOPIC
+import time
+from datetime import datetime # 需要用來轉換 Unix Timestamp
 
 # 價格還原倍數
 SCALE = 10000.0
@@ -13,8 +16,8 @@ def main():
     # 1. 消費者設定
     conf = {
         'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS,
-        'group.id': 'txf-monitor-group', # 消費者群組 ID
-        'auto.offset.reset': 'latest',   # 只聽最新的資料 (Real-time)
+        'group.id': 'txf-monitor-group',
+        'auto.offset.reset': 'latest',
         'enable.auto.commit': True
     }
 
@@ -28,43 +31,50 @@ def main():
 
     try:
         while True:
-            msg = consumer.poll(0.1) # 0.1秒 timeout
+            msg = consumer.poll(0.1)
 
-            if msg is None:
+            if msg is None or msg.error():
                 continue
-            if msg.error():
-                if msg.error().code() == KafkaError._PARTITION_EOF:
-                    continue
-                else:
-                    print(msg.error())
-                    break
+            
+            # 獲取處理時間（當前時間，毫秒）
+            # 這是 Consumer 收到這筆資料的當下時間
+            processing_time_ms = int(time.time() * 1000)
 
-            # 3. 收到資料，開始解碼
             topic = msg.topic()
             
             if topic == TICK_TOPIC:
                 # --- 解析 Tick ---
                 tick = txf_data_pb2.Tick()
-                tick.ParseFromString(msg.value()) # <--- 關鍵：二進制轉物件
+                tick.ParseFromString(msg.value())
                 
+                # 從 Protobuf 獲取事件時間（毫秒）
+                event_time_ms = tick.timestamp_ms
+                
+                # 計算 端到端延遲 (E2E Latency)
+                e2e_latency_ms = processing_time_ms - event_time_ms
+                
+                # 還原時間字串以供閱讀
+                event_dt = datetime.fromtimestamp(event_time_ms / 1000)
+
                 print(f"[TICK] {tick.code} | "
-                      f"時間: {tick.timestamp_ms} | "
+                      f"時間: {event_dt.strftime('%H:%M:%S.%f')[:-3]} | "
                       f"成交價: {to_decimal(tick.close)} | "
-                      f"單量: {tick.volume} | "
-                      f"總量: {tick.total_volume}")
+                      f"延遲: {e2e_latency_ms} ms") # <--- 最終延遲輸出
 
             elif topic == BIDASK_TOPIC:
                 # --- 解析 BidAsk ---
                 ba = txf_data_pb2.BidAsk()
-                ba.ParseFromString(msg.value()) # <--- 關鍵：二進制轉物件
+                ba.ParseFromString(msg.value())
                 
-                # 簡單顯示第一檔委託
+                e2e_latency_ms = processing_time_ms - ba.timestamp_ms
+                
                 bid1 = to_decimal(ba.bid_price[0]) if ba.bid_price else 0
                 ask1 = to_decimal(ba.ask_price[0]) if ba.ask_price else 0
                 
                 print(f"[BA  ] {ba.code} | "
                       f"買一: {bid1} ({ba.bid_volume[0] if ba.bid_volume else 0}) | "
-                      f"賣一: {ask1} ({ba.ask_volume[0] if ba.ask_volume else 0})")
+                      f"賣一: {ask1} ({ba.ask_volume[0] if ba.ask_volume else 0}) | "
+                      f"延遲: {e2e_latency_ms} ms") # <--- 最終延遲輸出
 
     except KeyboardInterrupt:
         pass
