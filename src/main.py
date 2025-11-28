@@ -1,19 +1,13 @@
-import sys
-import os
-import json
-import shioaji as sj
-from shioaji import TickSTkQuote, BidAskSTkQuote
 from datetime import datetime
-from decimal import Decimal
+
+import shioaji as sj
+from shioaji import TickFOPv1, BidAskFOPv1, Exchange
 from confluent_kafka import Producer
 import txf_data_pb2  # 匯入剛剛編譯好的 Protobuf 定義
 
 from config import (
-    SHIOAJI_API_KEY, 
-    SHIOAJI_SECRET_KEY, 
-    KAFKA_BOOTSTRAP_SERVERS, 
-    TICK_TOPIC,
-    BIDASK_TOPIC
+    SHIOAJI_API_KEY, SHIOAJI_SECRET_KEY, 
+    KAFKA_BOOTSTRAP_SERVERS, TICK_TOPIC, BIDASK_TOPIC
 )
 
 
@@ -45,81 +39,85 @@ def to_scaled_int(val):
     if val is None: return 0
     return int(val * SCALE)
 
-def process_tick(quote: dict):
-    """處理 Tick 資料並傳送"""
+def process_tick(quote: TickFOPv1):
+    """處理 Tick 資料並傳送 (直接使用 Shioaji 物件)"""
     try:
+        # [過濾試撮合] 如果是 simtrade，直接跳過 (極致效率要求)
+        if quote.simtrade == 1:
+            return
+
         tick = txf_data_pb2.Tick()
         
-        # 1. 基礎欄位填入
-        tick.code = quote.get('code', '')
-        # 時間處理：Shioaji datetime 物件轉 Unix Timestamp (毫秒)
-        dt = quote.get('datetime')
-        if dt:
-            tick.timestamp_ms = int(dt.timestamp() * 1000)
+        # 1. 基礎欄位填入 (直接使用點號存取)
+        tick.code = quote.code
+        # 時間處理：物件屬性
+        tick.timestamp_ms = int(quote.datetime.timestamp() * 1000)
             
-        # 2. 價格與量 (轉為 Scaled Int)
-        tick.open = to_scaled_int(quote.get('open'))
-        tick.underlying_price = to_scaled_int(quote.get('underlying_price'))
-        tick.bid_side_total_vol = int(quote.get('bid_side_total_vol', 0))
-        tick.ask_side_total_vol = int(quote.get('ask_side_total_vol', 0))
-        tick.avg_price = to_scaled_int(quote.get('avg_price'))
-        tick.close = to_scaled_int(quote.get('close'))
-        tick.high = to_scaled_int(quote.get('high'))
-        tick.low = to_scaled_int(quote.get('low'))
+        # 2. 價格與量 (直接使用屬性，並轉為 Scaled Int)
+        tick.open = to_scaled_int(quote.open)
+        tick.underlying_price = to_scaled_int(quote.underlying_price)
+        tick.bid_side_total_vol = int(quote.bid_side_total_vol)
+        tick.ask_side_total_vol = int(quote.ask_side_total_vol)
+        tick.avg_price = to_scaled_int(quote.avg_price)
+        tick.close = to_scaled_int(quote.close)
+        tick.high = to_scaled_int(quote.high)
+        tick.low = to_scaled_int(quote.low)
         
-        tick.amount = int(quote.get('amount', 0))
-        tick.total_amount = int(quote.get('total_amount', 0))
-        tick.volume = int(quote.get('volume', 0))
-        tick.total_volume = int(quote.get('total_volume', 0))
+        tick.amount = int(quote.amount)
+        tick.total_amount = int(quote.total_amount)
+        tick.volume = int(quote.volume)
+        tick.total_volume = int(quote.total_volume)
         
-        tick.tick_type = int(quote.get('tick_type', 0))
-        tick.chg_type = int(quote.get('chg_type', 0))
-        tick.price_chg = to_scaled_int(quote.get('price_chg'))
-        tick.pct_chg = to_scaled_int(quote.get('pct_chg'))
-        tick.simtrade = bool(quote.get('simtrade', 0))
+        tick.tick_type = int(quote.tick_type)
+        tick.chg_type = int(quote.chg_type)
+        tick.price_chg = to_scaled_int(quote.price_chg)
+        tick.pct_chg = to_scaled_int(quote.pct_chg)
+        tick.simtrade = bool(quote.simtrade)
 
-        # 3. 序列化並發送 (Key=Code 以保證順序)
+        # 3. 序列化並發送
         producer.produce(
             TICK_TOPIC,
             key=tick.code.encode('utf-8'),
             value=tick.SerializeToString(),
             on_delivery=delivery_report
         )
-        producer.poll(0) # 觸發 callback，但不阻塞
+        producer.poll(0)
 
     except Exception as e:
         print(f"Error processing tick: {e}")
 
-def process_bidask(quote: dict):
-    """處理 BidAsk 資料並傳送"""
+def process_bidask(quote: BidAskFOPv1):
+    """處理 BidAsk 資料並傳送 (直接使用 Shioaji 物件)"""
     try:
+        # [過濾試撮合]
+        if quote.simtrade == 1:
+            return
+            
         ba = txf_data_pb2.BidAsk()
         
-        ba.code = quote.get('code', '')
-        dt = quote.get('datetime')
-        if dt:
-            ba.timestamp_ms = int(dt.timestamp() * 1000)
+        ba.code = quote.code
+        ba.timestamp_ms = int(quote.datetime.timestamp() * 1000)
             
-        ba.bid_total_vol = int(quote.get('bid_total_vol', 0))
-        ba.ask_total_vol = int(quote.get('ask_total_vol', 0))
-        ba.underlying_price = to_scaled_int(quote.get('underlying_price'))
-        ba.simtrade = bool(quote.get('simtrade', 0))
+        ba.bid_total_vol = int(quote.bid_total_vol)
+        ba.ask_total_vol = int(quote.ask_total_vol)
+        ba.underlying_price = to_scaled_int(quote.underlying_price)
+        ba.simtrade = bool(quote.simtrade)
 
-        # 處理 List (五檔報價)
-        # 注意：Shioaji 傳回的 List 內元素需逐一轉換
-        if 'bid_price' in quote:
-            ba.bid_price.extend([to_scaled_int(x) for x in quote['bid_price']])
-        if 'bid_volume' in quote:
-            ba.bid_volume.extend(quote['bid_volume'])
-        if 'diff_bid_vol' in quote:
-            ba.diff_bid_vol.extend(quote['diff_bid_vol'])
+        # 處理 List (直接存取屬性，並在 extend 時完成 Decimal 轉 int64)
+        # 這裡不需要檢查 if 'bid_price' in quote:，因為物件屬性一定存在，只是列表可能為空
+        ba.bid_price.extend([to_scaled_int(x) for x in quote.bid_price])
+        ba.bid_volume.extend(quote.bid_volume)
+        ba.diff_bid_vol.extend(quote.diff_bid_vol)
             
-        if 'ask_price' in quote:
-            ba.ask_price.extend([to_scaled_int(x) for x in quote['ask_price']])
-        if 'ask_volume' in quote:
-            ba.ask_volume.extend(quote['ask_volume'])
-        if 'diff_ask_vol' in quote:
-            ba.diff_ask_vol.extend(quote['diff_ask_vol'])
+        ba.ask_price.extend([to_scaled_int(x) for x in quote.ask_price])
+        ba.ask_volume.extend(quote.ask_volume)
+        ba.diff_ask_vol.extend(quote.diff_ask_vol)
+        
+        # 處理衍生一檔價格
+        ba.first_derived_bid_price = to_scaled_int(quote.first_derived_bid_price)
+        ba.first_derived_ask_price = to_scaled_int(quote.first_derived_ask_price)
+        ba.first_derived_bid_vol = int(quote.first_derived_bid_vol)
+        ba.first_derived_ask_vol = int(quote.first_derived_ask_vol)
 
         producer.produce(
             BIDASK_TOPIC,
@@ -132,36 +130,43 @@ def process_bidask(quote: dict):
     except Exception as e:
         print(f"Error processing bidask: {e}")
 
-# --- Shioaji Callback ---
-def quote_callback(topic: str, quote: dict):
-    """
-    Shioaji 的回調函數。
-    Topic 格式範例: 'MKT/id/FOP/TXF/202512' (這是 Shioaji 的 topic，不是 Kafka 的)
-    """
-    # 簡單判斷是 Tick 還是 BidAsk
-    # Shioaji 的 quote dict 中，Tick 通常有 'tick_type'，BidAsk 有 'bid_price'
-    
-    # 這裡的 quote 已經是 dict 格式
-    if 'tick_type' in quote:
-        # print(f"Tick received: {quote['code']} at {quote['datetime']}")
-        process_tick(quote)
-    elif 'bid_price' in quote:
-        # print(f"BidAsk received: {quote['code']} at {quote['datetime']}")
-        process_bidask(quote)
 
 # --- 主程式 ---
 def main():
-    api = sj.Shioaji()
+    api = sj.Shioaji(simulation=True)
     
     print("登入 Shioaji API...")
-    accounts = api.login(
+    api.login(
         api_key=SHIOAJI_API_KEY, 
         secret_key=SHIOAJI_SECRET_KEY
     )
     print("登入成功")
 
     # 設定回調函數
-    api.set_context(quote_callback)
+    @api.on_tick_fop_v1()
+    def tick_data_handler(exchange:Exchange, tick:TickFOPv1): # <class 'tick.TickFOPv1'>
+        process_tick(tick)
+
+        local_time = datetime.now()
+        event_time = tick.datetime
+        # 計算延遲 (timedelta)
+        latency_timedelta = local_time - event_time
+        
+        # 將 timedelta 轉換為毫秒 (ms)
+        latency_ms = latency_timedelta.total_seconds() * 1000
+        print("-" * 60)
+        print(f"[{tick.code} | {tick.total_volume} Lot]")
+        print(f"  事件發生時間: {event_time}")
+        print(f"  本機接收時間: {local_time}")
+        print(f"  -> API 接收延遲: {latency_ms:.3f} ms") # 保留三位小數
+        print(f"Price: {tick.close}, Total Volume: {tick.total_volume}, tick_type: {tick.tick_type}")
+        print("-" * 60)
+
+    @api.on_bidask_fop_v1()
+    def bidask_data_handler(exchange:Exchange, bidask:BidAskFOPv1): # <class 'bidask.BidAskFOPv1'>
+        process_bidask(bidask)
+        print(f"{str(bidask.datetime)}: First Bid: {bidask.bid_price[0]}, First Ask: {bidask.ask_price[0]}, Bid Total Vol: {bidask.bid_total_vol}, Ask Total Vol: {bidask.ask_total_vol}")
+
 
     # 訂閱台指期 (這裡以 TXF 近月為例，你可以依需求修改)
     # 這裡示範訂閱最近的台指期
