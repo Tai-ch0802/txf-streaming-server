@@ -41,12 +41,14 @@ def to_scaled_int(val):
     if val is None: return 0
     return int(val * SCALE)
 
-# --- 核心處理函數 (保持不變，使用物件屬性存取) ---
+# --- 核心處理函數 (使用物件屬性存取) ---
 
 def process_tick(quote: TickFOPv1):
+    """將 Tick 物件轉換為 Protobuf 並發送"""
     try:
         if quote.simtrade == 1: return
         tick = txf_data_pb2.Tick()
+        
         # 欄位填入邏輯 (使用 quote.attribute 方式)
         tick.code = quote.code
         tick.timestamp_ms = int(quote.datetime.timestamp() * 1000)
@@ -66,9 +68,11 @@ def process_tick(quote: TickFOPv1):
         print(f"Error processing tick: {e}")
 
 def process_bidask(quote: BidAskFOPv1):
+    """將 BidAsk 物件轉換為 Protobuf 並發送"""
     try:
         if quote.simtrade == 1: return
         ba = txf_data_pb2.BidAsk()
+        
         # 欄位填入邏輯 (使用 quote.attribute 方式)
         ba.code = quote.code; ba.timestamp_ms = int(quote.datetime.timestamp() * 1000)
         ba.bid_total_vol = int(quote.bid_total_vol); ba.ask_total_vol = int(quote.ask_total_vol)
@@ -93,7 +97,7 @@ def process_bidask(quote: BidAskFOPv1):
 # --- 智能退出處理器 ---
 
 def handle_session_down(reason: str = "Retries Timeout"):
-    """(Code 1 最終觸發) 處理 Session Down 事件，強制退出。"""
+    """處理 Session Down 事件 (Code 1 最終觸發)，強制退出讓 Systemd 重建實例。"""
     print(f"🚨 API Session Down Detected (Final): {reason}")
     print("--- 🛑 Terminating to force clean API recreation via Systemd... ---")
     
@@ -109,13 +113,11 @@ def handle_session_down(reason: str = "Retries Timeout"):
 def quote_event_handler(resp_code: int, event_code: int, info: str, event: str):
     """根據 Solace Event Code 決定是否需要執行強制退出。"""
     
-    # 忽略通知類和成功類代碼
-    if event_code in {0, 6, 10, 13, 15, 16, 18}: # 成功、重連成功、OK
+    # 忽略重試中/成功/通知類代碼 (Code 12, 13, 0, 16, etc.)
+    if event_code in {0, 6, 10, 13, 15, 16, 18}: 
         if event_code == 13: print("    -> Solace 重連成功，服務恢復運行。")
         return
-        
-    # 忽略重試中代碼，讓 Solace 繼續嘗試自癒
-    if event_code == 12: # RECONNECTING_NOTICE
+    if event_code == 12: 
         print("    -> Solace 正在自動重試，保持服務運行...")
         return
         
@@ -129,6 +131,7 @@ def quote_event_handler(resp_code: int, event_code: int, info: str, event: str):
 
 
 # --- 主程式 ---
+
 def main():
     global API_INSTANCE
 
@@ -151,23 +154,25 @@ def main():
     # 3. 註冊數據回調函數
     @API_INSTANCE.on_tick_fop_v1()
     def tick_data_handler(exchange:Exchange, tick:TickFOPv1):
+        # 執行 Kafka 推送
         process_tick(tick)
-        # Latency check printing (保持不變)
+        
+        # 執行 API 接收延遲測量 (詳細 Log 風格維持)
         local_time = datetime.now()
         event_time = tick.datetime
         latency_ms = (local_time - event_time).total_seconds() * 1000
         print("-" * 60)
-        print(f"[{tick.code} | {tick.total_volume} Lot]")
-        print(f"  事件發生時間: {event_time}")
+        print(f"[{tick.code} | {tick.total_volume} Lot] (API RECVD)")
+        print(f"  成交發生時間: {event_time}")
         print(f"  本機接收時間: {local_time}")
-        print(f"-> API 接收延遲: {latency_ms:.3f} ms")
+        print(f"  -> API 接收延遲: {latency_ms:.3f} ms")
         print(f"Price: {tick.close}, Total Volume: {tick.total_volume}, tick_type: {tick.tick_type}")
         print("-" * 60)
 
     @API_INSTANCE.on_bidask_fop_v1()
     def bidask_data_handler(exchange:Exchange, bidask:BidAskFOPv1):
         process_bidask(bidask)
-        # BidAsk 簡潔打印 (保持不變)
+        # BidAsk 簡潔打印 (維持風格)
         print(f"BidAsk PUSHED | {str(bidask.datetime)}: Bid: {bidask.bid_price[0]}, Ask: {bidask.ask_price[0]}")
 
 
