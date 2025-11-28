@@ -1,6 +1,34 @@
 # .gitignore
 
+# ------------------------
+# Environment / Virtualenv
+# ------------------------
+# dotenv 環境變數檔案
 .env
+
+# Python 虛擬環境資料夾
 .venv/
+
+# ------------------------
+# Logs / Notes
+# ------------------------
+# 一般文字筆記檔
 notes.txt
+
+# 所有 log 檔案
 *.log
+logs/
+
+# ------------------------
+# macOS 系統檔
+# ------------------------
+.DS_Store
+
+# ------------------------
+# Python bytecode
+# ------------------------
+# 所有編譯後的 .pyc 檔
+*.pyc
+
+# Python bytecode cache 資料夾
+__pycache__/
