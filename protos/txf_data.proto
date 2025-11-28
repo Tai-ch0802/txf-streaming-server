@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package txf;
+
+// --- 定義 Tick Data (對應你的 Tick 結構) ---
+message Tick {
+  string code = 1;
+  int64 timestamp_ms = 2;       // datetime -> Unix Timestamp (毫秒)
+  int64 open = 3;               // Decimal -> int64 (價格 x 10000)
+  int64 underlying_price = 4;
+  int32 bid_side_total_vol = 5;
+  int32 ask_side_total_vol = 6;
+  int64 avg_price = 7;
+  int64 close = 8;
+  int64 high = 9;
+  int64 low = 10;
+  int64 amount = 11;            // 成交額 (NTD)
+  int64 total_amount = 12;
+  int32 volume = 13;
+  int32 total_volume = 14;
+  int32 tick_type = 15;         // 1:外盤, 2:內盤...
+  int32 chg_type = 16;          // 漲跌註記
+  int64 price_chg = 17;
+  int64 pct_chg = 18;           // 百分比也 x 10000
+  bool simtrade = 19;           // int -> bool (更省空間)
+}
+
+// --- 定義 BidAsk Data (對應你的 BidAsk 結構) ---
+message BidAsk {
+  string code = 1;
+  int64 timestamp_ms = 2;
+  int32 bid_total_vol = 3;
+  int32 ask_total_vol = 4;
+  
+  // List 欄位使用 repeated
+  repeated int64 bid_price = 5; // x 10000
+  repeated int32 bid_volume = 6;
+  repeated int32 diff_bid_vol = 7;
+  
+  repeated int64 ask_price = 8; // x 10000
+  repeated int32 ask_volume = 9;
+  repeated int32 diff_ask_vol = 10;
+  
+  int64 first_derived_bid_price = 11;
+  int64 first_derived_ask_price = 12;
+  int32 first_derived_bid_vol = 13;
+  int32 first_derived_ask_vol = 14;
+  int64 underlying_price = 15;
+  bool simtrade = 16;
+}
