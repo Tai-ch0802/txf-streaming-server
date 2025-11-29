@@ -1,4 +1,4 @@
-# TXF Streaming Server (Shioaji -> Kafka)
+# TXF Streaming Server (Shioaji -\> Kafka)
 
 這是一個練習高頻交易 (HFT) 資料管線設計的 Python 服務。它使用 **Asyncio** 連接永豐 Shioaji API，將台指期 (TXF) 的 **Tick** 與 **BidAsk** 數據經由 **Google Protobuf** 序列化後，即時推送到 **Apache Kafka**。
 
@@ -26,6 +26,33 @@ txf-streaming-server/
 ├── .gitignore               # Git 忽略清單
 └── requirements.txt         # Python 依賴套件清單
 ```
+
+## 資料格式 (Data Schema)
+
+本專案使用 **Google Protobuf 3** 定義資料結構。為了在保留小數位數的同時提升序列化效能與壓縮比，所有價格欄位皆採用 **Scaled Integer (x10000)** 儲存。
+
+### 1\. Tick Data (`txf.Tick`)
+
+| Field | Type | Description | Note |
+| :--- | :--- | :--- | :--- |
+| `code` | string | 商品代碼 | e.g., "TXFR1" |
+| `timestamp_ms` | int64 | 時間戳記 | Unix Epoch (ms) |
+| `close` | int64 | 成交價 | **Price \* 10000** |
+| `volume` | int32 | 單筆量 | |
+| `tick_type` | int32 | 內外盤 | 1:外盤 (Buy), 2:內盤 (Sell) |
+| `total_volume` | int32 | 當日總量 | 用於檢測封包遺漏 |
+| `underlying_price` | int64 | 標的物價格 | Price \* 10000 |
+
+### 2\. BidAsk Data (`txf.BidAsk`)
+
+| Field | Type | Description | Note |
+| :--- | :--- | :--- | :--- |
+| `bid/ask_total_vol` | int32 | 委託總量 | |
+| `bid/ask_price` | repeated int64 | 五檔價格 | List[5], **Price \* 10000** |
+| `bid/ask_volume` | repeated int32 | 五檔掛單量 | List[5] |
+| `diff_..._vol` | repeated int32 | 掛單變化量 | List[5], 策略訊號用 |
+
+-----
 
 ## 快速開始 (Quick Start)
 
@@ -71,7 +98,6 @@ KAFKA_BOOTSTRAP_SERVERS=kafka_broker_IP:9092
 # Topic 名稱範例: txf-tick, txf-bidask
 TICK_TOPIC=txf-tick
 BIDASK_TOPIC=txf-bidask
-
 ```
 
 ### 4\. 執行測試
@@ -100,6 +126,7 @@ Requires=kafka.service
 PartOf=kafka.service
 
 [Service]
+# 請填入實際的使用者與路徑
 User=
 Group=
 WorkingDirectory=
@@ -123,7 +150,9 @@ WantedBy=multi-user.target
 ```bash
 sudo crontab -e
 ```
+
 於文件最下方貼上以下內容：
+
 ```nano
 # --- Day Session (08:29 Start - 13:46 Stop) ---
 29 08 * * 1-5 /bin/systemctl start txf-producer.service
@@ -138,35 +167,42 @@ sudo crontab -e
 
 以下指令皆需以 `sudo` 執行（Root 權限）。
 
-### 1. 監控與狀態 (Monitoring)
+### 1\. 監控與狀態 (Monitoring)
+
 | 動作 | 指令 |
 | :--- | :--- |
 | **即時監控 Log** | `sudo journalctl -u txf-producer.service -f` |
 | **查看服務狀態** | `sudo systemctl status txf-producer.service` |
 
-### 2. 手動控制 (Manual Control)
+### 2\. 手動控制 (Manual Control)
+
 | 動作 | 指令 |
 | :--- | :--- |
 | **啟動服務** | `sudo systemctl start txf-producer.service` |
 | **停止服務** | `sudo systemctl stop txf-producer.service` |
 | **重啟服務** | `sudo systemctl restart txf-producer.service` |
+
 > *註：修改 Python 程式碼後，請執行「重啟服務」。*
 
-### 3. 排程與設定 (Configuration)
+### 3\. 排程與設定 (Configuration)
+
 | 動作 | 指令 |
 | :--- | :--- |
 | **修改排程** | `sudo crontab -e` |
 | **檢查排程** | `sudo crontab -l` |
 | **修改 Service 檔** | `sudo nano /etc/systemd/system/txf-producer.service` |
 | **重載 Service 設定**| `sudo systemctl daemon-reload` |
+
 > *註：修改 `.service` 檔案後，務必執行「重載 Service 設定」。*
 
-### 4. 開機啟動管理 (Boot Control)
+### 4\. 開機啟動管理 (Boot Control)
+
 | 動作 | 指令 |
 | :--- | :--- |
 | **停用開機自啟** | `sudo systemctl disable txf-producer.service` |
 | **啟用開機自啟** | `sudo systemctl enable txf-producer.service` |
 | **檢查設定狀態** | `systemctl is-enabled txf-producer.service` |
+
 > *註：本專案使用 Crontab 控制交易時段，建議設定為 **停用 (disable)** 以免非交易時間誤啟動。*
 
 ## Disclaimer
