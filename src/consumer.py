@@ -89,8 +89,8 @@ def main():
         
         print(f"🚀 全欄位監控模式啟動 | Broker: {KAFKA_BOOTSTRAP_SERVERS}")
         print(f"📡 監聽 Topics: {TICK_TOPIC}, {BIDASK_TOPIC}")
-        print("📝 等待資料中... (按 Ctrl+C 停止)")
-        print("-" * 60)
+        print( "⏳ 等待資料中... (按 Ctrl+C 停止)")
+        print( "-" * 60)
         
     except Exception as e:
         print(f"❌ Consumer 初始化失敗: {e}")
@@ -156,10 +156,10 @@ def main():
                 print(f"   └─ [賣] 增減: {format_list(ba.diff_ask_vol)}")
 
     except KeyboardInterrupt:
-        print("\n👋 收到停止訊號，監控結束。")
+        print("\n🛑 收到停止訊號，監控結束。")
         
     finally:
-        print("正在關閉 Consumer...")
+        print("⏳ 正在關閉 Consumer...")
         consumer.close()
         print("✅ Consumer 已關閉。")
 
