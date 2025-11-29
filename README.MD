@@ -14,14 +14,17 @@
 ## 目錄結構 (Structure)
 
 ```text
-.
+txf-streaming-server/
+├── protos/
+│   └── txf_data.proto       # Google Protobuf 原始定義檔
 ├── src/
-│   ├── txf_producer.py    # 核心服務程式 (Asyncio Entry)
-│   ├── config.py          # 設定檔 (需手動建立)
-│   ├── txf_data_pb2.py    # Protobuf 編譯檔
-│   └── txf_data.proto     # Protobuf 定義檔
-├── .venv/                 # Python 虛擬環境
-└── requirements.txt       # 依賴套件清單
+│   ├── txf_producer.py      # [核心] 生產者服務 (Shioaji -> Kafka)
+│   ├── txf_consumer.py      # [測試] 消費者範例 (Kafka -> Strategy)
+│   ├── config.py            # 設定載入模組 (負責讀取 .env)
+│   └── txf_data_pb2.py      # Protobuf 編譯後的 Python 類別
+├── .env                     # 敏感資料設定
+├── .gitignore               # Git 忽略清單
+└── requirements.txt         # Python 依賴套件清單
 ```
 
 ## 快速開始 (Quick Start)
@@ -44,7 +47,7 @@ pip install -r requirements.txt
 
 ```bash
 # 確保已安裝 protoc 編譯器
-protoc -I=src --python_out=src src/txf_data.proto
+python -m grpc_tools.protoc -I protos --python_out=src protos/txf_data.proto
 ```
 
 ### 3\. 設定檔 (Configuration)
