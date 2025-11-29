@@ -1,6 +1,8 @@
-# TXF Streaming Server (Shioaji -\> Kafka)
+# TXF Streaming Server
 
 這是一個練習高頻交易 (HFT) 資料管線設計的 Python 服務。它使用 **Asyncio** 連接永豐 Shioaji API，將台指期 (TXF) 的 **Tick** 與 **BidAsk** 數據經由 **Google Protobuf** 序列化後，即時推送到 **Apache Kafka**。
+
+-----
 
 ## 核心架構 (Architecture)
 
@@ -10,6 +12,8 @@
   * **Concurrency**: Python Asyncio (Non-blocking I/O)
   * **Process Management**: Systemd (Auto-restart / Logging)
   * **Scheduling**: Linux Crontab (Day/Night Session control)
+
+-----
 
 ## 目錄結構 (Structure)
 
@@ -26,6 +30,8 @@ txf-streaming-server/
 ├── .gitignore               # Git 忽略清單
 └── requirements.txt         # Python 依賴套件清單
 ```
+
+-----
 
 ## 資料格式 (Data Schema)
 
@@ -108,6 +114,8 @@ BIDASK_TOPIC=txf-bidask
 python src/txf_producer.py
 ```
 
+-----
+
 ## 伺服器部署 (Deployment)
 
 本服務設計為 Ubuntu Systemd 背景服務，配合 Crontab 進行自動開關機。
@@ -163,6 +171,8 @@ sudo crontab -e
 01 05 * * 2-6 /bin/systemctl stop txf-producer.service
 ```
 
+-----
+
 ## 維運指令速查 (Operations Cheat Sheet)
 
 以下指令皆需以 `sudo` 執行（Root 權限）。
@@ -204,6 +214,8 @@ sudo crontab -e
 | **檢查設定狀態** | `systemctl is-enabled txf-producer.service` |
 
 > *註：本專案使用 Crontab 控制交易時段，建議設定為 **停用 (disable)** 以免非交易時間誤啟動。*
+
+-----
 
 ## Disclaimer
 
