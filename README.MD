@@ -1,4 +1,4 @@
-# TXF Streaming Server (Shioaji to Kafka) 🚀
+# TXF Streaming Server (Shioaji -> Kafka)
 
 這是一個練習高頻交易 (HFT) 資料管線設計的 Python 服務。它使用 **Asyncio** 連接永豐 Shioaji API，將台指期 (TXF) 的 **Tick** 與 **BidAsk** 數據經由 **Google Protobuf** 序列化後，即時推送到 **Apache Kafka**。
 
