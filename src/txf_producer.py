@@ -6,6 +6,7 @@ Architecture:
   - Pattern: Event-Driven Producer
   - Core: Shioaji (Source) -> Protobuf (Serialize) -> Kafka (Sink)
   - Optimization: Class encapsulation, lazy loading, error isolation
+  - Asyncio Engine: uvloop (High-Performance Event Loop)
 Author: Garrett & Gemini
 Last Updated: 2025-11-29
 """
@@ -14,14 +15,14 @@ import sys
 import signal
 import asyncio
 import logging
-from datetime import datetime
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional
 
 # --- Third-party Imports ---
 import shioaji as sj
 from shioaji import TickFOPv1, BidAskFOPv1
 from confluent_kafka import Producer
+import uvloop
 
 # --- Local Imports ---
 import txf_data_pb2
@@ -66,6 +67,12 @@ class TxfStreamingService:
     """
     台指期行情串流服務
     封裝了 API 連線、Kafka 發送與錯誤處理邏輯
+    
+    Methods:
+        start()          - 登入 API, 訂閱資料
+        shutdown()       - 優雅關閉
+        process_tick()   - Tick 處理
+        process_bidask() - BidAsk 處理
     """
     def __init__(self):
         self.api: Optional[sj.Shioaji] = None
@@ -78,11 +85,13 @@ class TxfStreamingService:
         kafka_conf = {
             'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS,
             'client.id': 'txf-producer-hft',
-            'acks': '0',                # 極速模式 (Fire & Forget)
-            'linger.ms': 0,             # 零延遲
-            'compression.type': 'lz4',  # 低 CPU 消耗壓縮
-            'queue.buffering.max.kbytes': 131072, # 128MB Buffer
-            'batch.size': 262144,       # 256KB Batch
+            # --- HFT 速度核心參數 ---
+            'acks': '0',                # 極速模式：Producer 不等待 Broker 確認，以追求最低延遲。
+            'linger.ms': 0,             # 零延遲：有數據立即發送，不等待批次累積 (Batching)。
+            'compression.type': 'lz4',  # 低 CPU 消耗壓縮：解壓最快，延遲最低。
+            # --------------------------
+            'queue.buffering.max.kbytes': 131072, # 128MB Buffer: 防止快市或網路抖動時記憶體溢出。
+            'batch.size': 262144,       # 256KB Batch: 雖然 linger=0，但瞬間大量寫入時仍為有效限制。
             # 針對 TCP 網路層優化
             'socket.send.buffer.bytes': 102400,
             'socket.receive.buffer.bytes': 102400,
@@ -100,7 +109,11 @@ class TxfStreamingService:
             logger.error(f'❌ Kafka Delivery Failed: {err}')
 
     def _to_scaled_int(self, val: Optional[Decimal]) -> int:
-        """快速轉換 Decimal 為 int64"""
+        """
+        快速轉換 Decimal 為 int64 (x10000)。
+        說明：這是為了確保金融數據精度，並將其轉換為 Protobuf 效率最高的 int64 格式。
+        (註: Decimal 運算比 float 慢，但換取了絕對精度。)
+        """
         return int(val * SCALE) if val is not None else 0
 
     # --- Data Processing Callbacks ---
@@ -126,7 +139,8 @@ class TxfStreamingService:
                 value=tick.SerializeToString(),
                 on_delivery=self._delivery_report
             )
-            # 頻繁 poll(0) 雖然消耗 CPU，但對 HFT 來說能保持 queue 流動
+            # 關鍵點：立即觸發 librdkafka 的回調函數檢查 (Delivery/Error)。
+            # 雖然頻繁 poll(0) 增加 CPU 負載，但確保極致延遲和 queue 不阻塞。
             self.producer.poll(0)
 
         except Exception as e:
@@ -252,5 +266,19 @@ async def main():
     await stop_event.wait()
     service.shutdown()
 
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    # --- 覆蓋標準 asyncio loop ---
+    # uvloop.install() 將 Python 內建的 asyncio 事件迴圈替換為 libuv 實現。
+    # 這是提升 I/O 調度效率的最高效益優化 (CPU cycles -> C code)。
+    uvloop.install()
+    
+    try:
+        # 啟動 Asyncio 執行環境，運行主協程 (Coroutine) main()
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        # 處理 Ctrl+C
+        pass
+    except Exception as e:
+        logger.critical(f"❌ Main execution failed: {e}")
+        sys.exit(1)

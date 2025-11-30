@@ -2,3 +2,4 @@ confluent-kafka
 dotenv
 grpcio-tools
 shioaji[speed]
+uvloop
