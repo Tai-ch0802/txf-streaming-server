@@ -4,11 +4,7 @@
 
 -----
 
-這是針對您專案核心架構的補充說明，旨在解釋每個元件的 **職責** 與 **優勢**，讓架構說明更完整。
-
----
-
-## 核心架構 (Architecture) 補充
+## 核心架構 (Architecture) 
 
 | 元件 | 職責 (Role) | 優勢與考量點 (Why it Matters) |
 | :--- | :--- | :--- |
@@ -18,11 +14,10 @@
 | **Concurrency: Python Asyncio** (Non-blocking I/O) | 併發模型 | **I/O 效率高，低 CPU 消耗**。允許服務在單一執行緒內高效地等待來自網路 (Shioaji) 的數據，而不會阻塞程式。|
 | **Asyncio Engine: uvloop** (High-Performance Event Loop) | 併發引擎 | **進階優化**。取代 Python 標準事件迴圈，用 C 語言實現的 `libuv` 核心來大幅提升 I/O 排程與任務切換的效率 (Jitter/Latency 降低)。|
 | **Process Management: Systemd** (Auto-restart / Logging) | 服務管理 | **穩定性與自動化**。作為作業系統的守護程序，確保服務啟動、統一收集日誌 (`journalctl`)，並負責在程式錯誤退出時 (Exit Code 1) **自動重啟**，以實現盤中自癒。|
-| **Scheduling: Linux Crontab** (Day/Night Session control) | 時間控制 | **定時啟動與關閉**。精確控制服務的生命週期，使其只在台指期的日盤 (08:29-13:46) 和夜盤 (14:49-05:01) 期間運行，避免浪費資源。|
+| **Scheduling: Linux Crontab** (Day/Night Session control) | 時間控制 | **定時啟動與關閉**。精確控制服務的生命週期，使其只在台指期開市期間運行，避免浪費資源。|
 
 
-這個架構的價值在於將 I/O 密集型任務 (Shioaji) 和 CPU 密集型任務 (Serialization) 隔開，並使用高效的 C 語言工具 (librdkafka, uvloop, Protobuf) 貫穿整個流程，以達到低延遲的目標。
-
+這個架構將 I/O 密集型任務 (Shioaji) 和 CPU 密集型任務 (Serialization) 隔開，並使用高效的 C 語言工具 (librdkafka, uvloop, Protobuf) 貫穿整個流程，以達到低延遲的目標。
 
 
 -----
