@@ -1,7 +1,0 @@
-based58
-ciso8601
-confluent-kafka
-dotenv
-grpcio-tools
-pipdeptree
-shioaji[speed]
