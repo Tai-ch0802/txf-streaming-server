@@ -6,8 +6,9 @@
 # dotenv 環境變數檔案
 .env
 
-# Python 虛擬環境資料夾
+# 資料夾
 .venv/
+tests/
 
 # ------------------------
 # Logs / Notes

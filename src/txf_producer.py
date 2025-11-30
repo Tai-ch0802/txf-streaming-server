@@ -25,8 +25,8 @@ from confluent_kafka import Producer
 import uvloop
 
 # --- Local Imports ---
-import txf_data_pb2
-from config import (
+from . import txf_data_pb2
+from .config import (
     SHIOAJI_API_KEY, SHIOAJI_SECRET_KEY, 
     KAFKA_BOOTSTRAP_SERVERS, 
     TICK_TOPIC, BIDASK_TOPIC

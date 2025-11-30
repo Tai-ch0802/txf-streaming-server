@@ -18,17 +18,18 @@
 ## 目錄結構 (Structure)
 
 ```text
-txf-streaming-server/
+txf-streaming-server/     
 ├── protos/
-│   └── txf_data.proto       # Google Protobuf 原始定義檔
-├── src/
-│   ├── txf_producer.py      # [核心] 生產者服務 (Shioaji -> Kafka)
+│   └── txf_data.proto       # 數據定義 (Protobuf Source)
+├── src/                     
+│   ├── __init__.py          # Package 標記檔
+│   ├── txf_producer.py      # [核心] 生產者服務 (Systemd 啟動目標)
 │   ├── txf_consumer.py      # [測試] 消費者範例 (Kafka -> Strategy)
-│   ├── config.py            # 設定載入模組 (負責讀取 .env)
+│   ├── config.py            
 │   └── txf_data_pb2.py      # Protobuf 編譯後的 Python 類別
 ├── .env                     # 敏感資料設定
-├── .gitignore               # Git 忽略清單
-└── requirements.txt         # Python 依賴套件清單
+├── .gitignore               
+└── requirements.txt         
 ```
 
 -----
@@ -111,7 +112,7 @@ BIDASK_TOPIC=txf-bidask
 手動執行時，Log 會包含時間戳記；Systemd 執行時則會自動隱藏時間 (Smart Logging)。
 
 ```bash
-python src/txf_producer.py
+python -m src.txf_producer
 ```
 
 -----
