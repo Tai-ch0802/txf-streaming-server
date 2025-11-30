@@ -13,7 +13,7 @@
 # Logs / Notes
 # ------------------------
 # 一般文字筆記檔
-notes.txt
+notes.*
 
 # 所有 log 檔案
 *.log
