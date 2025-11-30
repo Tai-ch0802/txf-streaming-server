@@ -1,0 +1,9 @@
+Package         Version
+--------------- -------
+based58         0.1.1
+ciso8601        2.3.3
+confluent-kafka 2.12.2
+dotenv          0.9.9
+grpcio-tools    1.76.0
+pip             25.3
+shioaji         1.2.9
