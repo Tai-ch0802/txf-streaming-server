@@ -144,49 +144,6 @@ sudo crontab -e
 -----
 ## 伺服器狀態預覽
 ![1](pic/1.png)
------
-
-## 維運指令速查 (Operations Cheat Sheet)
-
-以下指令皆需以 `sudo` 執行（Root 權限）。
-
-### 1\. 監控與狀態 (Monitoring)
-
-| 動作 | 指令 |
-| :--- | :--- |
-| **即時監控 Log** | `sudo journalctl -u txf-producer.service -f` |
-| **查看服務狀態** | `sudo systemctl status txf-producer.service` |
-
-### 2\. 手動控制 (Manual Control)
-
-| 動作 | 指令 |
-| :--- | :--- |
-| **啟動服務** | `sudo systemctl start txf-producer.service` |
-| **停止服務** | `sudo systemctl stop txf-producer.service` |
-| **重啟服務** | `sudo systemctl restart txf-producer.service` |
-
-> *註：修改 Python 程式碼後，請執行「重啟服務」。*
-
-### 3\. 排程與設定 (Configuration)
-
-| 動作 | 指令 |
-| :--- | :--- |
-| **修改排程** | `sudo crontab -e` |
-| **檢查排程** | `sudo crontab -l` |
-| **修改 Service 檔** | `sudo nano /etc/systemd/system/txf-producer.service` |
-| **重載 Service 設定**| `sudo systemctl daemon-reload` |
-
-> *註：修改 `.service` 檔案後，務必執行「重載 Service 設定」。*
-
-### 4\. 開機啟動管理 (Boot Control)
-
-| 動作 | 指令 |
-| :--- | :--- |
-| **停用開機自啟** | `sudo systemctl disable txf-producer.service` |
-| **啟用開機自啟** | `sudo systemctl enable txf-producer.service` |
-| **檢查設定狀態** | `systemctl is-enabled txf-producer.service` |
-
-> *註：本專案使用 Crontab 控制交易時段，建議設定為 **停用 (disable)** 以免非交易時間誤啟動。*
 
 -----
 
