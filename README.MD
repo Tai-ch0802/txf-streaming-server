@@ -4,25 +4,6 @@
 
 -----
 
-## 目錄結構 (Structure)
-
-```text
-txf-streaming-server/     
-├── protos/
-│   └── txf_data.proto       # 數據定義 (Protobuf Source)
-├── src/                     
-│   ├── __init__.py          # Package 標記檔
-│   ├── txf_producer.py      # [核心] 生產者服務 (Systemd 啟動目標)
-│   ├── txf_consumer.py      # [測試] 消費者範例 (Kafka -> Strategy)
-│   ├── config.py            
-│   └── txf_data_pb2.py      # Protobuf 編譯後的 Python 類別
-├── .env                     # 敏感資料設定
-├── .gitignore               
-└── requirements.txt         
-```
-
------
-
 ## 資料格式 (Data Schema)
 
 本專案使用 **Google Protobuf 3** 定義資料結構。為了在保留小數位數的同時提升序列化效能與壓縮比，所有價格欄位皆採用 **Scaled Integer (x10000)** 儲存。
@@ -160,7 +141,9 @@ sudo crontab -e
 49 14 * * 1-5 /bin/systemctl start txf-producer.service
 01 05 * * 2-6 /bin/systemctl stop txf-producer.service
 ```
-
+-----
+## 伺服器狀態預覽
+![1](pic/1.png)
 -----
 
 ## 維運指令速查 (Operations Cheat Sheet)
