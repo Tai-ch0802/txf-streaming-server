@@ -4,14 +4,15 @@ services:
     image: wurstmeister/zookeeper
     container_name: txf-zookeeper
     ports:
-      - "2181:2181"
+      # 只綁本機：Zookeeper / Kafka 都沒有驗證，綁 0.0.0.0 等於對整個網段（或公網）開放
+      - "127.0.0.1:2181:2181"
     restart: unless-stopped
 
   kafka:
     image: wurstmeister/kafka
     container_name: txf-kafka
     ports:
-      - "9092:9092"
+      - "127.0.0.1:9092:9092"
     environment:
       KAFKA_ADVERTISED_HOST_NAME: localhost
       KAFKA_ADVERTISED_PORT: 9092

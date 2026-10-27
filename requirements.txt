@@ -1,5 +1,10 @@
-confluent-kafka
-dotenv
-grpcio-tools
-shioaji[speed]
-uvloop
+# 版本釘死（2026-10 資安盤點）：不釘版本時每次 pip install 都裝當下最新版，
+# 套件維護者帳號被盜、發布惡意新版時會直接進到持有 Shioaji API 金鑰的環境。
+# 升版請手動改這裡；選版原則：已發布滿 7 天的版本。
+confluent-kafka==2.16.0
+# 原本寫 `dotenv`：那是 PyPI 上另一個（已標示 Deprecated）的套件名稱，只是轉裝 python-dotenv。
+# 程式 import 的是 python-dotenv，直接依賴正名，避免依賴一個隨時可能易主的舊名稱。
+python-dotenv==1.2.4
+grpcio-tools==1.84.0
+shioaji[speed]==1.7.8
+uvloop==0.23.0
